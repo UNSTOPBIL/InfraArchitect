@@ -1,37 +1,38 @@
 version: '3.9'
 services:
-  ids-suricata:
-    image: jasonish/suricata:latest
-    network_mode: "host"
-    cap_add:
-      - NET_ADMIN
-      - SYS_NICE
-    volumes:
-      - ./suricata-logs:/var/log/suricata
-
-  siem-wazuh:
-    image: wazuh/wazuh-odfe:4.3.10
+  ethereum-node:
+    image: ethereum/client-go:stable
     ports:
-      - "1514:1514/udp" # Agent communication
-      - "55000:55000"   # API
+      - "30303:30303"     # P2P Discovery
+      - "8545:8545"       # RPC API
+    volumes:
+      - eth_data:/root/.ethereum
+
+  graph-indexer:
+    image: graphprotocol/graph-node:latest
     environment:
-      - INDEXER_URL=https://wazuh-indexer:9200
+      - postgres_host=db
+      - ethereum_node=mainnet:http://ethereum-node:8545
     depends_on:
-      - wazuh-indexer
+      - db
+      - ethereum-node
 
-  wazuh-indexer:
-    image: wazuh/wazuh-indexer:4.3.10
-    environment:
-      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
-    volumes:
-      - wazuh_data:/var/lib/wazuh-indexer
-
-  honeypot-trap:
-    image: cowrie/cowrie:latest
+  ipfs-gateway:
+    image: ipfs/kubo:latest
     ports:
-      - "2222:2222" # Fake SSH to trap attackers
+      - "4001:4001"       # P2P Swarm
+      - "8080:8080"       # Gateway
     volumes:
-      - ./honey-logs:/home/cowrie/cowrie-git/var/log/cowrie
+      - ipfs_data:/data/ipfs
+
+  db:
+    image: postgres:14-alpine
+    environment:
+      - POSTGRES_PASSWORD=unstopbil_web3_secret
+    volumes:
+      - pg_data:/var/lib/postgresql/data
 
 volumes:
-  wazuh_data:
+  eth_data:
+  ipfs_data:
+  pg_data:
