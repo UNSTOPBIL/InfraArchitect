@@ -1,38 +1,39 @@
 version: '3.9'
 services:
-  ethereum-node:
-    image: ethereum/client-go:stable
+  mqtt-broker:
+    image: eclipse-mosquitto:latest
     ports:
-      - "30303:30303"     # P2P Discovery
-      - "8545:8545"       # RPC API
+      - "1883:1883"   # MQTT Port
+      - "9001:9001"   # WebSockets
     volumes:
-      - eth_data:/root/.ethereum
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
 
-  graph-indexer:
-    image: graphprotocol/graph-node:latest
+  data-ingressor:
+    image: python:3.10-slim
     environment:
-      - postgres_host=db
-      - ethereum_node=mainnet:http://ethereum-node:8545
+      - MQTT_HOST=mqtt-broker
+      - INFLUXDB_TOKEN=unstopbil_iot_token
     depends_on:
-      - db
-      - ethereum-node
+      - mqtt-broker
+      - influxdb
 
-  ipfs-gateway:
-    image: ipfs/kubo:latest
+  influxdb:
+    image: influxdb:latest
     ports:
-      - "4001:4001"       # P2P Swarm
-      - "8080:8080"       # Gateway
-    volumes:
-      - ipfs_data:/data/ipfs
-
-  db:
-    image: postgres:14-alpine
+      - "8086:8086"
     environment:
-      - POSTGRES_PASSWORD=unstopbil_web3_secret
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=iot_secure_password
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      - influx_data:/var/lib/influxdb2
+
+  node-red:
+    image: nodered/node-red:latest
+    ports:
+      - "1880:1880"
+    depends_on:
+      - mqtt-broker
 
 volumes:
-  eth_data:
-  ipfs_data:
-  pg_data:
+  influx_data:
