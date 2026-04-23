@@ -1,39 +1,25 @@
 version: '3.9'
 services:
-  mqtt-broker:
-    image: eclipse-mosquitto:latest
+  edge-cache:
+    image: varnish:latest
     ports:
-      - "1883:1883"   # MQTT Port
-      - "9001:9001"   # WebSockets
+      - "80:80"
     volumes:
-      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
-
-  data-ingressor:
-    image: python:3.10-slim
-    environment:
-      - MQTT_HOST=mqtt-broker
-      - INFLUXDB_TOKEN=unstopbil_iot_token
+      - ./default.vcl:/etc/varnish/default.vcl
     depends_on:
-      - mqtt-broker
-      - influxdb
+      - web-origin
 
-  influxdb:
-    image: influxdb:latest
-    ports:
-      - "8086:8086"
-    environment:
-      - DOCKER_INFLUXDB_INIT_MODE=setup
-      - DOCKER_INFLUXDB_INIT_USERNAME=admin
-      - DOCKER_INFLUXDB_INIT_PASSWORD=iot_secure_password
-    volumes:
-      - influx_data:/var/lib/influxdb2
-
-  node-red:
-    image: nodered/node-red:latest
-    ports:
-      - "1880:1880"
+  web-origin:
+    image: nginx:alpine
     depends_on:
-      - mqtt-broker
+      - session-store
 
-volumes:
-  influx_data:
+  session-store:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+
+  log-analyzer:
+    image: alpine
+    command: ["sh", "-c", "tail -f /var/log/nginx/access.log"]
+    depends_on:
+      - web-origin
