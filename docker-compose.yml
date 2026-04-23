@@ -1,24 +1,34 @@
 version: '3.9'
 services:
-  nginx-proxy:
-    image: nginx:stable-alpine
+  api-gateway:
+    image: traefik:v2.10
     ports:
       - "80:80"
-    depends_on:
-      - app-v1
-  app-v1:
-    image: node:18-slim
+      - "8080:8080" # Dashboard
+    command: --api.insecure=true --providers.docker
+
+  auth-service:
+    image: node:20-alpine
     environment:
-      - DATABASE_URL=postgres://user:password@db:5432/infra_db
+      - JWT_SECRET=supersecret_hacker_key
     depends_on:
-      - db
-  db:
-    image: postgres:15-alpine
+      - redis-cache
+
+  order-db:
+    image: mongo:6.0
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d infra_db"]
-      interval: 10s
+      - mongo_data:/data/db
+
+  redis-cache:
+    image: redis:7.2-alpine
+    command: redis-server --save 60 1 --loglevel warning
+
+  grafana:
+    image: grafana/grafana-oss:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
 
 volumes:
-  postgres_data:
+  mongo_data:
