@@ -1,41 +1,36 @@
 version: '3.9'
 services:
-  api-gateway:
-    image: kong:latest
+  game-server:
+    image: ghcr.io/linuxserver/steamcmd:latest
     ports:
-      - "8000:8000"
-      - "8443:8443"
+      - "27015:27015/udp" # Game traffic
+      - "27015:27015/tcp" # Query traffic
     environment:
-      - KONG_DATABASE=off
+      - APP_ID=440 # Team Fortress 2
     depends_on:
-      - payment-service
+      - matchmaker-api
 
-  payment-service:
+  matchmaker-api:
     image: node:20-alpine
     environment:
-      - SERVICE_NAME=payments
-      - CONSUL_HTTP_ADDR=consul:8500
+      - INFLUXDB_URL=http://metrics:8086
     depends_on:
-      - consul
+      - metrics
 
-  cassandra-node:
-    image: cassandra:4.1
-    ports:
-      - "9042:9042"
+  metrics:
+    image: influxdb:2.7-alpine
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_PASSWORD=unstopbil_metrics_pass
     volumes:
-      - cassandra_data:/var/lib/cassandra
+      - influx_data:/var/lib/influxdb2
 
-  consul:
-    image: hashicorp/consul:1.15
+  visualizer:
+    image: grafana/grafana:latest
     ports:
-      - "8500:8500"
-    command: "agent -dev -client 0.0.0.0"
-
-  elk-stack:
-    image: sebp/elk:latest
-    ports:
-      - "5601:5601" # Kibana
-      - "9200:9200" # Elasticsearch
+      - "3000:3000"
+    depends_on:
+      - metrics
 
 volumes:
-  cassandra_data:
+  influx_data:
