@@ -1,27 +1,16 @@
 version: '3.9'
 services:
-  gateway:
-    image: kong:3.4
-    ports: [ "8000:8000" ]
-    depends_on: [ ledger-api, vault-auth ]
-
-  ledger-api:
-    image: golang:1.21-alpine
-    depends_on: [ db, redis ]
-    environment:
-      - DATABASE_URL=postgres://user:pass@db:5432/ledger
-
-  vault-auth:
-    image: hashicorp/vault:1.14
-    environment:
-      - VAULT_DEV_ROOT_TOKEN_ID=unstopbil_vault_token
-
-  db:
-    image: postgres:15-alpine
-    volumes: [ "ledger_data:/var/lib/postgresql/data" ]
-
-  redis:
+  web-proxy:
+    image: nginx:alpine
+    ports: ["80:80"]
+    depends_on: [api-service]
+  api-service:
+    image: node:20-slim
+    depends_on: [postgres-db, redis-cache]
+  postgres-db:
+    image: postgres:15
+    volumes: ["shop_data:/var/lib/postgresql/data"]
+  redis-cache:
     image: redis:7-alpine
-
 volumes:
-  ledger_data:
+  shop_data:
