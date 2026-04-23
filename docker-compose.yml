@@ -1,34 +1,37 @@
 version: '3.9'
 services:
-  api-gateway:
-    image: traefik:v2.10
+  event-bus:
+    image: rabbitmq:3-management-alpine
     ports:
-      - "80:80"
-      - "8080:8080" # Dashboard
-    command: --api.insecure=true --providers.docker
+      - "5672:5672" # Message broker
+      - "15672:15672" # Management UI
 
-  auth-service:
-    image: node:20-alpine
+  payment-service:
+    image: python:3.11-slim
     environment:
-      - JWT_SECRET=supersecret_hacker_key
+      - BROKER_URL=amqp://guest:guest@event-bus:5672
     depends_on:
-      - redis-cache
+      - event-bus
 
-  order-db:
-    image: mongo:6.0
-    volumes:
-      - mongo_data:/data/db
+  notification-worker:
+    image: node:20-alpine
+    command: ["npm", "start"]
+    depends_on:
+      - event-bus
+      - email-mock
 
-  redis-cache:
-    image: redis:7.2-alpine
-    command: redis-server --save 60 1 --loglevel warning
-
-  grafana:
-    image: grafana/grafana-oss:latest
+  email-mock:
+    image: mailhog/mailhog
     ports:
-      - "3000:3000"
+      - "1025:1025" # SMTP
+      - "8025:8025" # Dashboard
+
+  inventory-db:
+    image: mariadb:10.11
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - MARIADB_ROOT_PASSWORD=unstopbil_secure_pass
+    volumes:
+      - db_data:/var/lib/mysql
 
 volumes:
-  mongo_data:
+  db_data:
