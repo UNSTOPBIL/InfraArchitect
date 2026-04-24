@@ -1,38 +1,34 @@
-version: '3.8'
+version: '3.9'
 services:
-  prometheus:
-    image: prom/prometheus:latest
+  frontend-vcl:
+    image: nginx:alpine
     ports:
-      - "9090:9090"
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-
-  node-exporter:
-    image: prom/node-exporter:latest
-    ports:
-      - "9100:9100"
-
-  loki:
-    image: grafana/loki:latest
-    ports:
-      - "3100:3100"
-    command: -config.file=/etc/loki/local-config.yaml
-
-  promtail:
-    image: grafana/promtail:latest
-    volumes:
-      - /var/log:/var/log
-    command: -config.file=/etc/promtail/config.yml
-
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3000:3000"
+      - "80:80"
     depends_on:
-      - prometheus
-      - loki
+      - product-catalogue
+      - order-service
 
-  postgres-db:
-    image: postgres:15-alpine
+  product-catalogue:
+    image: node:18-alpine
     environment:
-      - POSTGRES_PASSWORD=unstopbil_secure_log_pass
+      - MONGO_URL=mongodb://db:27017/products
+    depends_on:
+      - db
+
+  order-service:
+    image: python:3.11-slim
+    environment:
+      - REDIS_HOST=cache
+    depends_on:
+      - cache
+
+  db:
+    image: mongo:6.0
+    volumes:
+      - prod_data:/data/db
+
+  cache:
+    image: redis:7.0-alpine
+
+volumes:
+  prod_data:
