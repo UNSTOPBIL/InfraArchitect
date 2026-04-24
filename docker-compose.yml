@@ -1,34 +1,9 @@
 version: '3.9'
 services:
-  frontend-vcl:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-    depends_on:
-      - product-catalogue
-      - order-service
-
-  product-catalogue:
-    image: node:18-alpine
-    environment:
-      - MONGO_URL=mongodb://db:27017/products
-    depends_on:
-      - db
-
-  order-service:
-    image: python:3.11-slim
-    environment:
-      - REDIS_HOST=cache
-    depends_on:
-      - cache
-
-  db:
-    image: mongo:6.0
-    volumes:
-      - prod_data:/data/db
-
+  app-server:
+    image: node:20-alpine
+    depends_on: [database, cache]
+  database:
+    image: postgres:15
   cache:
-    image: redis:7.0-alpine
-
-volumes:
-  prod_data:
+    image: redis:alpine
