@@ -1,16 +1,16 @@
 version: '3.9'
 services:
-  web-proxy:
+  reverse-proxy:
     image: nginx:alpine
     ports: ["80:80"]
-    depends_on: [api-service]
-  api-service:
-    image: node:20-slim
+    depends_on: [backend-api]
+  backend-api:
+    image: python:3.11-slim
     depends_on: [postgres-db, redis-cache]
   postgres-db:
     image: postgres:15
-    volumes: ["shop_data:/var/lib/postgresql/data"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
   redis-cache:
-    image: redis:7-alpine
+    image: redis:7
 volumes:
-  shop_data:
+  pgdata:
