@@ -1,10 +1,16 @@
 version: '3.9'
 services:
-  logic-tester:
-    image: alpine
-    command: ["echo", "Agent Loop Fixed"]
-  db-primary:
-    image: postgres:16-alpine
-    volumes: ["test_data:/var/lib/postgresql/data"]
+  web-proxy:
+    image: nginx:alpine
+    ports: ["80:80"]
+    depends_on: [api-service]
+  api-service:
+    image: node:20-slim
+    depends_on: [postgres-db, redis-cache]
+  postgres-db:
+    image: postgres:15
+    volumes: ["shop_data:/var/lib/postgresql/data"]
+  redis-cache:
+    image: redis:7-alpine
 volumes:
-  test_data:
+  shop_data:
