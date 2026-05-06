@@ -15,11 +15,13 @@ This repository contains resources and documentation for [project name]. This RE
 - Services
 - Prerequisites
 - Quickstart (example docker-compose)
+- Docker Compose: Recommended Best Practices
 - Ports & Accessibility
 - Persistence & Data Management
 - Security & Isolation Warnings
 - Cleanup & Resource Management
 - Troubleshooting
+- How to view the docker-compose diff locally
 - Credits, License & Responsible Use
 - Changelog
 
@@ -39,6 +41,12 @@ Intended use cases:
 - Reproducible testing of attacks against a known vulnerable app
 
 This README provides guidance and example configuration to help safely deploy the topology locally. The repository currently contains documentation (test.md). Example automation (docker-compose.yml) is provided below as a suggested starting point — adapt to your environment.
+
+What changed in this update
+- Added test.md describing the small attack/defense lab topology (Kali, vuln web app, MongoDB).
+- Added an example docker-compose.yml (documented in this README) to help get the lab up quickly.
+- Documented recommended network isolation, persistence, ports, and security warnings.
+- Added guidance and suggested best practices for docker-compose usage (pinning tags, named volumes, healthchecks, secrets, .env usage).
 
 ---
 
@@ -169,6 +177,60 @@ Sample commands:
 
 ---
 
+## Docker Compose: Recommended Best Practices
+
+Based on the recent documentation additions and common docker-compose considerations, consider adopting these practices in your compose files:
+
+- Pin image tags for reproducibility
+  - Avoid `:latest` in production/testing CI. Use explicit tags (e.g., `mongo:6.0.6`, `your-vuln-app:1.0.0`).
+  - Document image versions used for training exercises.
+
+- Use named volumes for persistence
+  - Named volumes (as in `mongo_data`) keep data across container recreation.
+  - Document how to back up/export/import volumes if students need persistent seeded data.
+
+- Keep databases internal-only
+  - Do not publish DB ports unless strictly necessary. If you must, enable authentication and firewall rules.
+
+- Use networks for isolation
+  - Create an isolated network for the lab to prevent accidental cross-talk with other host services: e.g., `labnet`.
+
+- Use .env for local overrides
+  - Put non-secret configuration (ports, tags) in an `.env` file to make local overrides simple.
+  - Example .env:
+    ```
+    VULN_WEB_IMAGE=your-vuln-app-image:1.0.0
+    MONGO_IMAGE=mongo:6
+    WEB_HOST_PORT=8080
+    ```
+  - Reference these in docker-compose with ${VULN_WEB_IMAGE}, etc.
+
+- Add healthchecks and restart policies (where useful)
+  - Healthchecks help orchestrators and users know when a service is ready.
+  - Example (vuln-web):
+    ```
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"] # or suitable check
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    ```
+
+- Manage sensitive data using Docker secrets or environment variable provisioning
+  - Do not commit secrets to the repo. For interactive labs, prefer ephemeral credentials and document how to set them.
+
+- depends_on vs readiness
+  - `depends_on` only controls startup order, not service readiness. Use healthchecks and application-level retries to ensure connections succeed.
+
+- Resource constraints (optional)
+  - For predictable lab behavior, limit CPU/memory with `deploy.resources` (compose version caveats apply) or runtime flags.
+
+- Clean up instructions
+  - Document how to remove volumes and images safely to avoid leaving sensitive data on developer machines.
+
+---
+
 ## Ports & Accessibility
 
 Default example mappings (adjust to your config):
@@ -190,6 +252,15 @@ Ensure:
   - Remove volume: docker volume rm <project>_mongo_data or docker-compose down --volumes
 - To seed data:
   - Provide a seed script, use a Dockerfile to copy seeder into the vulnerable-app image, or run an init script in a container that can reach MongoDB on the internal network.
+- Back up/restore:
+  - Use `mongodump`/`mongorestore` against a running MongoDB in the lab network, or mount the volume to a temporary container for file-level access.
+
+Migration considerations (if compose or volume names change):
+- If a compose change renames a named volume, data will not automatically move. To migrate:
+  - Stop containers.
+  - Create a temporary container mounting both old and new volumes and copy data between them.
+  - Verify file ownership/permissions after copy.
+  - Restart services with the new compose.
 
 ---
 
@@ -239,7 +310,24 @@ Monitor resource usage (CPU/memory) while running Kali and multiple services and
   - For containers, use docker exec -it lab_kali /bin/bash
   - For GUI in a VM, configure the VM image and remote desktop / VNC according to that image's documentation.
 
-If issues persist, consult test.md for additional notes added in the commit, and open an issue with logs and environment details.
+If issues persist, consult test.md for additional notes added in the recent documentation update, and open an issue with logs and environment details.
+
+---
+
+## How to view the docker-compose diff locally
+
+If you want to inspect the exact changes made to docker-compose.yml in a commit locally, run one of these commands from a git clone of the repository:
+
+- Show the docker-compose.yml at a specific commit:
+  - git show <commit-ish>:docker-compose.yml
+
+- Show a diff between two commits:
+  - git diff <old-commit> <new-commit> -- docker-compose.yml
+
+- Show a single commit's changes to docker-compose.yml:
+  - git show <commit> -- docker-compose.yml
+
+Replace <commit> with the SHA or branch name. If you need a precise commit analysis, paste the output of one of these commands into an issue or pull request and the maintainers (or an automation) can review line-by-line.
 
 ---
 
@@ -256,6 +344,7 @@ Legal disclaimer: The authors and maintainers are not responsible for misuse of 
 ## Changelog
 
 - 2026-05-06 — Documentation: Added test.md and README updates describing a small attack/defense lab topology (Kali attacker, Vulnerable Web App, MongoDB backend). Documented recommended network isolation, ports, persistence, quickstart example, and security warnings.
+- 2026-05-06 — Documentation: Added a docker-compose best-practices checklist (pinning tags, volumes, healthchecks, .env usage, secrets advice) and guidance for inspecting compose diffs and migration considerations.
 
 ---
 
@@ -265,7 +354,5 @@ Legal disclaimer: The authors and maintainers are not responsible for misuse of 
 - Add a MongoDB seeder and web app source or build instructions.
 - Add health checks and small automated integration tests to validate the topology in CI (in a controlled sandbox).
 - Track images and versions used and add notes when updating vulnerable-app or DB images.
-
----
 
 For more details, see test.md in this repository. If you would like, I can provide a tailored docker-compose.yml adapted exactly to the images used in this project — paste the image names/tags or the content of test.md and I will generate it.
