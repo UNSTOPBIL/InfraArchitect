@@ -1,23 +1,34 @@
 version: '3.9'
 services:
-  kali-rolling:
-    image: kalilinux/kali-rolling
-    tty: true
-    networks:
-      - target-net
-  
-  vulnerable-webapp:
-    image: bkimminich/juice-shop
+  frontend-vcl:
+    image: nginx:alpine
     ports:
-      - "3000:3000"
-    networks:
-      - target-net
+      - "80:80"
+    depends_on:
+      - product-catalogue
+      - order-service
 
-  db-leak:
-    image: mongo:latest
-    networks:
-      - target-net
+  product-catalogue:
+    image: node:18-alpine
+    environment:
+      - MONGO_URL=mongodb://db:27017/products
+    depends_on:
+      - db
 
-networks:
-  target-net:
-    driver: bridge
+  order-service:
+    image: python:3.11-slim
+    environment:
+      - REDIS_HOST=cache
+    depends_on:
+      - cache
+
+  db:
+    image: mongo:6.0
+    volumes:
+      - prod_data:/data/db
+
+  cache:
+    image: redis:7.0-alpine
+
+volumes:
+  prod_data:
