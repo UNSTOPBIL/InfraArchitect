@@ -1,16 +1,23 @@
 version: '3.9'
 services:
-  lb:
-    image: haproxy:alpine
-    ports: ["80:80"]
-  web-1:
-    image: nginx:alpine
-  web-2:
-    image: nginx:alpine
-  api:
-    image: python:3.10-slim
-    depends_on: [db]
-  db:
-    image: mariadb:latest
-    environment:
-      - MARIADB_ROOT_PASSWORD=linuxcore_secret
+  kali-rolling:
+    image: kalilinux/kali-rolling
+    tty: true
+    networks:
+      - target-net
+  
+  vulnerable-webapp:
+    image: bkimminich/juice-shop
+    ports:
+      - "3000:3000"
+    networks:
+      - target-net
+
+  db-leak:
+    image: mongo:latest
+    networks:
+      - target-net
+
+networks:
+  target-net:
+    driver: bridge
